@@ -135,6 +135,7 @@
   /* REP MAX HINT */
   .rep-max-hint{font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:1px;min-height:1.2em;margin-bottom:8px;transition:opacity 0.2s;}
   .rep-max-hint.found{color:var(--accent);}
+  .rep-max-hint.est{color:var(--accent2);}
   .rep-max-hint.none{color:var(--muted);}
 
   /* EMPTY */
@@ -599,25 +600,41 @@ function populateExerciseSelect() {
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
 
+function epley1RM(weight, reps) { return reps === 1 ? weight : weight * (1 + reps / 30); }
+function epleyAtReps(orm, reps)  { return reps === 1 ? orm : orm / (1 + reps / 30); }
+
 function updateRepMaxHint() {
   const hint = document.getElementById('rep-max-hint');
   const reps = parseInt(document.getElementById('inp-reps').value);
   const exId = document.getElementById('sel-exercise').value;
   if (!reps || reps < 1 || !exId) { hint.textContent = ''; hint.className = 'rep-max-hint'; return; }
+
   let maxWeight = -1;
+  let bestORM    = -1;
+
   entries.forEach(entry => {
     if (entry.exId !== exId) return;
-    entry.sets.forEach(set => { if (set.reps === reps && set.weight > maxWeight) maxWeight = set.weight; });
+    entry.sets.forEach(set => {
+      if (set.weight <= 0) return;
+      if (set.reps === reps) {
+        if (set.weight > maxWeight) maxWeight = set.weight;
+      }
+      const orm = epley1RM(set.weight, set.reps);
+      if (orm > bestORM) bestORM = orm;
+    });
   });
-  if (maxWeight < 0) {
-    hint.textContent = `No data for ${reps} rep${reps===1?'':'s'}`;
-    hint.className = 'rep-max-hint none';
-  } else if (maxWeight === 0) {
-    hint.textContent = `Best at ${reps} rep${reps===1?'':'s'}: Bodyweight`;
-    hint.className = 'rep-max-hint found';
+
+  const label = `${reps} rep${reps===1?'':'s'}`;
+  if (maxWeight >= 0) {
+    hint.textContent  = `Best at ${label}: ${maxWeight} lbs`;
+    hint.className    = 'rep-max-hint found';
+  } else if (bestORM > 0) {
+    const est = Math.round(epleyAtReps(bestORM, reps) / 2.5) * 2.5;
+    hint.textContent  = `Est. at ${label}: ~${est} lbs`;
+    hint.className    = 'rep-max-hint est';
   } else {
-    hint.textContent = `Best at ${reps} rep${reps===1?'':'s'}: ${maxWeight} lbs`;
-    hint.className = 'rep-max-hint found';
+    hint.textContent  = `No data for ${label}`;
+    hint.className    = 'rep-max-hint none';
   }
 }
 
