@@ -262,7 +262,7 @@
       </div>
       <div class="history-table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Exercise</th><th>Sets</th><th>Total Reps</th><th>Volume (lbs)</th><th>Est. 1RM</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Exercise</th><th>Sets</th><th>Total Reps</th><th>Volume (lbs)</th><th>Est. 1RM</th><th></th><th></th></tr></thead>
           <tbody id="history-body"></tbody>
         </table>
         <div class="empty" id="history-empty" style="display:none;"><div class="empty-icon">📋</div>No matching entries.</div>
@@ -749,15 +749,43 @@ function renderHistory() {
     const vol=entryVolume(e), barW=maxVol>0?Math.round((vol/maxVol)*80):0;
     const totalReps=e.sets.reduce((s,set)=>s+set.reps,0);
     const orm=entryBest1RM(e), ormStr=orm>0?`${Math.round(orm)} lbs`:'—';
-    return `<tr>
-      <td>${fmtDate(e.date)}</td><td style="color:var(--text);">${e.exName}</td>
+    return `<tr id="row-${e.id}">
+      <td>${fmtDate(e.date)}</td>
+      <td style="color:var(--text);" id="row-ex-${e.id}">${e.exName}</td>
       <td>${e.sets.length}</td><td>${totalReps}</td>
       <td><div class="vol-bar-wrap"><div class="vol-bar" style="width:${barW}px"></div><span class="vol-num">${vol.toLocaleString()}</span></div></td>
       <td style="color:var(--accent2);">${ormStr}</td>
+      <td><button class="btn btn-sm btn-ghost" onclick="startReassign('${e.id}')" title="Reassign exercise">✎</button></td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteEntry('${e.id}')">✕</button></td>
     </tr>`;
   }).join('');
   renderChart(rows);
+}
+
+function startReassign(id) {
+  const entry = entries.find(e=>e.id===id);
+  if(!entry) return;
+  const cell = document.getElementById('row-ex-'+id);
+  const opts = exercises.slice().sort((a,b)=>a.name.localeCompare(b.name))
+    .map(ex=>`<option value="${ex.id}"${ex.id===entry.exId?' selected':''}>${ex.name}</option>`).join('');
+  cell.innerHTML = `
+    <div style="display:flex;gap:6px;align-items:center;">
+      <select id="reassign-sel-${id}" style="font-size:0.75rem;padding:4px 6px;">${opts}</select>
+      <button class="btn btn-primary btn-sm" style="width:auto;padding:4px 8px;" onclick="confirmReassign('${id}')">✓</button>
+      <button class="btn btn-ghost btn-sm" style="width:auto;padding:4px 8px;" onclick="renderHistory()">✕</button>
+    </div>`;
+}
+
+function confirmReassign(id) {
+  const entry  = entries.find(e=>e.id===id);
+  const sel    = document.getElementById('reassign-sel-'+id);
+  if(!entry||!sel) return;
+  const target = exercises.find(e=>e.id===sel.value);
+  if(!target) return;
+  entry.exId   = target.id;
+  entry.exName = target.name;
+  saveAll(); renderHistory();
+  toastMsg(`Moved to "${target.name}"`);
 }
 
 function deleteEntry(id){
