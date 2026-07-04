@@ -132,6 +132,11 @@
   .add-exercise-form{display:flex;gap:12px;align-items:flex-end;}
   .add-exercise-form .form-field{margin:0;flex:1;}
 
+  /* REP MAX HINT */
+  .rep-max-hint{font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:1px;min-height:1.2em;margin-bottom:8px;transition:opacity 0.2s;}
+  .rep-max-hint.found{color:var(--accent);}
+  .rep-max-hint.none{color:var(--muted);}
+
   /* EMPTY */
   .empty{text-align:center;padding:60px 20px;color:var(--muted);font-family:'DM Mono',monospace;font-size:0.8rem;letter-spacing:1px;}
   .empty-icon{font-size:2.5rem;margin-bottom:12px;}
@@ -214,6 +219,7 @@
             <div class="form-field"><label>Reps</label><input type="number" id="inp-reps" min="1" max="999" placeholder="10"></div>
             <div class="form-field"><label>Weight (lbs)</label><input type="number" id="inp-weight" min="0" step="2.5" placeholder="135"></div>
           </div>
+          <div id="rep-max-hint" class="rep-max-hint"></div>
           <button class="btn btn-ghost" onclick="addSet()">+ Add Set</button>
           <ul class="set-list" id="set-list"></ul>
           <button class="btn btn-primary" onclick="logEntry()">Log Workout</button>
@@ -346,6 +352,8 @@ window.addEventListener('DOMContentLoaded', () => {
   ['inp-reps','inp-weight'].forEach(id =>
     document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') addSet(); })
   );
+  document.getElementById('inp-reps').addEventListener('input', updateRepMaxHint);
+  document.getElementById('sel-exercise').addEventListener('change', updateRepMaxHint);
   // Allow Enter on login fields
   ['inp-pat','inp-pass'].forEach(id =>
     document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); })
@@ -574,6 +582,28 @@ function populateExerciseSelect() {
 }
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+function updateRepMaxHint() {
+  const hint = document.getElementById('rep-max-hint');
+  const reps = parseInt(document.getElementById('inp-reps').value);
+  const exId = document.getElementById('sel-exercise').value;
+  if (!reps || reps < 1 || !exId) { hint.textContent = ''; hint.className = 'rep-max-hint'; return; }
+  let maxWeight = -1;
+  entries.forEach(entry => {
+    if (entry.exId !== exId) return;
+    entry.sets.forEach(set => { if (set.reps === reps && set.weight > maxWeight) maxWeight = set.weight; });
+  });
+  if (maxWeight < 0) {
+    hint.textContent = `No data for ${reps} rep${reps===1?'':'s'}`;
+    hint.className = 'rep-max-hint none';
+  } else if (maxWeight === 0) {
+    hint.textContent = `Best at ${reps} rep${reps===1?'':'s'}: Bodyweight`;
+    hint.className = 'rep-max-hint found';
+  } else {
+    hint.textContent = `Best at ${reps} rep${reps===1?'':'s'}: ${maxWeight} lbs`;
+    hint.className = 'rep-max-hint found';
+  }
+}
 
 function addSet() {
   const reps  = parseInt(document.getElementById('inp-reps').value);
