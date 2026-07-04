@@ -130,6 +130,13 @@
   .exercise-del-btn{position:absolute;top:12px;right:12px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.9rem;opacity:0;transition:opacity 0.2s,color 0.2s;}
   .exercise-card:hover .exercise-del-btn{opacity:1;}
   .exercise-del-btn:hover{color:var(--danger);}
+  .exercise-card-actions{display:flex;gap:6px;margin-top:10px;}
+  .exercise-card-actions button{background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:'DM Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;padding:4px 8px;cursor:pointer;transition:all 0.15s;}
+  .exercise-card-actions button:hover{border-color:var(--accent);color:var(--accent);}
+  .exercise-card-actions button.merge-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+  .exercise-inline-edit{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+  .exercise-inline-edit input,.exercise-inline-edit select{font-size:0.8rem;padding:6px 8px;}
+  .exercise-inline-edit .row{display:flex;gap:6px;}
   .add-exercise-form{display:flex;gap:12px;align-items:flex-end;}
   .add-exercise-form .form-field{margin:0;flex:1;}
 
@@ -840,6 +847,60 @@ function renderChart(rows) {
 // ══════════════════════════════════════════════
 //  EXERCISES
 // ══════════════════════════════════════════════
+function startRename(id) {
+  const ex = exercises.find(e=>e.id===id);
+  if(!ex) return;
+  const edit = document.getElementById('ex-edit-'+id);
+  edit.style.display = 'block';
+  edit.innerHTML = `
+    <input type="text" id="rename-inp-${id}" value="${ex.name}">
+    <div class="row">
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="confirmRename('${id}')">Save</button>
+      <button class="btn btn-ghost btn-sm" style="width:auto;" onclick="renderExercises()">Cancel</button>
+    </div>`;
+  const inp = document.getElementById('rename-inp-'+id);
+  inp.focus(); inp.select();
+  inp.addEventListener('keydown', e=>{ if(e.key==='Enter') confirmRename(id); if(e.key==='Escape') renderExercises(); });
+}
+
+function confirmRename(id) {
+  const newName = document.getElementById('rename-inp-'+id)?.value.trim();
+  if(!newName) { toastMsg('Enter a name',true); return; }
+  if(exercises.some(e=>e.id!==id&&e.name.toLowerCase()===newName.toLowerCase())) { toastMsg('Name already exists',true); return; }
+  const ex = exercises.find(e=>e.id===id);
+  const old = ex.name;
+  ex.name = newName;
+  entries.forEach(entry=>{ if(entry.exId===id) entry.exName=newName; });
+  saveAll(); renderExercises(); populateExerciseSelect();
+  toastMsg(`Renamed "${old}" → "${newName}"`);
+}
+
+function startMerge(id) {
+  const others = exercises.filter(e=>e.id!==id).sort((a,b)=>a.name.localeCompare(b.name));
+  if(!others.length) { toastMsg('No other exercises to merge into',true); return; }
+  const edit = document.getElementById('ex-edit-'+id);
+  edit.style.display = 'block';
+  edit.innerHTML = `
+    <select id="merge-sel-${id}">${others.map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select>
+    <div class="row">
+      <button class="btn btn-primary btn-sm" style="width:auto;" onclick="confirmMerge('${id}')">Merge</button>
+      <button class="btn btn-ghost btn-sm" style="width:auto;" onclick="renderExercises()">Cancel</button>
+    </div>`;
+}
+
+function confirmMerge(sourceId) {
+  const targetId = document.getElementById('merge-sel-'+sourceId)?.value;
+  const source = exercises.find(e=>e.id===sourceId);
+  const target = exercises.find(e=>e.id===targetId);
+  if(!source||!target) return;
+  const count = entries.filter(e=>e.exId===sourceId).length;
+  if(!confirm(`Merge "${source.name}" into "${target.name}"?\n\n${count} entr${count!==1?'ies':'y'} will be reassigned. This cannot be undone.`)) return;
+  entries.forEach(entry=>{ if(entry.exId===sourceId){ entry.exId=targetId; entry.exName=target.name; } });
+  exercises = exercises.filter(e=>e.id!==sourceId);
+  saveAll(); renderExercises(); populateExerciseSelect();
+  toastMsg(`Merged into "${target.name}"`);
+}
+
 function addExercise() {
   const name=document.getElementById('new-ex-name').value.trim();
   const cat=document.getElementById('new-ex-cat').value;
@@ -864,11 +925,16 @@ function renderExercises() {
   grid.innerHTML=exercises.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(ex=>{
     const count=entries.filter(e=>e.exId===ex.id).length;
     const vol=entries.filter(e=>e.exId===ex.id).reduce((s,e)=>s+entryVolume(e),0);
-    return `<div class="exercise-card">
+    return `<div class="exercise-card" id="ex-card-${ex.id}">
       <button class="exercise-del-btn" onclick="deleteExercise('${ex.id}')">✕</button>
-      <div class="exercise-card-name">${ex.name}</div>
+      <div class="exercise-card-name" id="ex-name-${ex.id}">${ex.name}</div>
       <div class="exercise-card-cat" style="color:${catColors[ex.cat]||'#888'}">${ex.cat}</div>
-      <div class="exercise-card-stat">${count} sessions · ${Math.round(vol).toLocaleString()} lbs total</div>
+      <div class="exercise-card-stat" id="ex-stat-${ex.id}">${count} session${count!==1?'s':''} · ${Math.round(vol).toLocaleString()} lbs total</div>
+      <div class="exercise-card-actions">
+        <button onclick="startRename('${ex.id}')">Rename</button>
+        <button class="merge-btn" onclick="startMerge('${ex.id}')">Merge into…</button>
+      </div>
+      <div class="exercise-inline-edit" id="ex-edit-${ex.id}" style="display:none;"></div>
     </div>`;
   }).join('');
 }
