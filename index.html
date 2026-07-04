@@ -254,6 +254,7 @@
         <input type="date" id="filter-from" onchange="renderHistory()" title="From">
         <input type="date" id="filter-to" onchange="renderHistory()" title="To">
         <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportData()" style="margin-left:auto;">Export JSON</button>
       </div>
       <div class="history-table-wrap">
         <table>
@@ -730,6 +731,27 @@ function renderHistory() {
 function deleteEntry(id){
   entries=entries.filter(e=>e.id!==id);
   saveAll(); renderHistory(); renderTodaySession(); toastMsg('Entry deleted');
+}
+
+function exportData() {
+  const data = {
+    exported: new Date().toISOString(),
+    exercises: exercises.map(e => ({ name: e.name, category: e.cat })),
+    entries: entries.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(e => ({
+      date: e.date,
+      exercise: e.exName,
+      notes: e.notes || '',
+      sets: e.sets.map(s => ({ reps: s.reps, weight: s.weight > 0 ? s.weight : 'BW' }))
+    }))
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `iron-log-export-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toastMsg('Exported ✓');
 }
 
 function clearFilters(){
