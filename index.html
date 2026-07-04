@@ -537,14 +537,23 @@ async function syncToGist(showFeedback = true) {
 
 function scheduleSave() {
   clearTimeout(syncTimeout);
-  syncTimeout = setTimeout(() => syncToGist(false), 3000);
+  setSyncStatus('pending');
+  syncTimeout = setTimeout(() => syncToGist(false), 800);
 }
 
 function saveAll() { scheduleSave(); }
 
 function dataHash() {
-  return entries.length + '_' + exercises.length + '_' + (entries[0]?.id||'') + (entries[0]?.ts||'');
+  return entries.length + '_' + exercises.length + '_' +
+    entries.map(e => e.id + e.ts).join(',');
 }
+
+window.addEventListener('beforeunload', e => {
+  if(dataHash() !== lastHash) {
+    e.preventDefault();
+    e.returnValue = 'You have unsaved workout data. Wait for the sync to complete before closing.';
+  }
+});
 
 async function ghFetch(url, method='GET', body=null, token=null) {
   const t = token || ghToken;
@@ -567,8 +576,8 @@ function setSyncStatus(state) {
   const btn = document.getElementById('sync-btn');
   const lbl = document.getElementById('sync-label');
   dot.className = 'sync-dot' + (state==='ok'?' ok':state==='err'?' err':'');
-  btn.classList.toggle('syncing', state==='syncing');
-  lbl.textContent = state==='syncing'?'Syncing…':state==='err'?'Retry':'Synced';
+  btn.classList.toggle('syncing', state==='syncing' || state==='pending');
+  lbl.textContent = state==='syncing'?'Syncing…':state==='pending'?'Saving…':state==='err'?'Retry':'Synced';
 }
 
 // ══════════════════════════════════════════════
