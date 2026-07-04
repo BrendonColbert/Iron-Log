@@ -255,7 +255,7 @@
       </div>
       <div class="history-table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Exercise</th><th>Sets</th><th>Total Reps</th><th>Volume (lbs)</th><th></th></tr></thead>
+          <thead><tr><th>Date</th><th>Exercise</th><th>Sets</th><th>Total Reps</th><th>Volume (lbs)</th><th>Est. 1RM</th><th></th></tr></thead>
           <tbody id="history-body"></tbody>
         </table>
         <div class="empty" id="history-empty" style="display:none;"><div class="empty-icon">📋</div>No matching entries.</div>
@@ -717,6 +717,7 @@ function filteredEntries() {
 }
 
 function entryVolume(e){ return e.sets.reduce((s,set)=>s+set.reps*(set.weight||0),0); }
+function entryBest1RM(e){ const v=e.sets.filter(s=>s.weight>0).map(s=>epley1RM(s.weight,s.reps)); return v.length?Math.max(...v):0; }
 
 function renderHistory() {
   const rows=filteredEntries();
@@ -731,10 +732,12 @@ function renderHistory() {
   tbody.innerHTML=rows.map(e=>{
     const vol=entryVolume(e), barW=maxVol>0?Math.round((vol/maxVol)*80):0;
     const totalReps=e.sets.reduce((s,set)=>s+set.reps,0);
+    const orm=entryBest1RM(e), ormStr=orm>0?`${Math.round(orm)} lbs`:'—';
     return `<tr>
       <td>${fmtDate(e.date)}</td><td style="color:var(--text);">${e.exName}</td>
       <td>${e.sets.length}</td><td>${totalReps}</td>
       <td><div class="vol-bar-wrap"><div class="vol-bar" style="width:${barW}px"></div><span class="vol-num">${vol.toLocaleString()}</span></div></td>
+      <td style="color:var(--accent2);">${ormStr}</td>
       <td><button class="btn btn-sm btn-danger" onclick="deleteEntry('${e.id}')">✕</button></td>
     </tr>`;
   }).join('');
@@ -786,8 +789,13 @@ function renderChart(rows) {
     ctx.fillStyle='#333'; ctx.font='12px DM Mono,monospace'; ctx.textAlign='center';
     ctx.fillText('Not enough data — log 2+ entries to see chart',W/2,H/2); return;
   }
+  const exId=document.getElementById('filter-exercise').value;
+  const useORM=!!exId;
   const byDate={};
-  rows.forEach(e=>{ byDate[e.date]=(byDate[e.date]||0)+entryVolume(e); });
+  rows.forEach(e=>{
+    if(useORM){ const orm=entryBest1RM(e); if(orm>0&&(!byDate[e.date]||orm>byDate[e.date])) byDate[e.date]=orm; }
+    else { byDate[e.date]=(byDate[e.date]||0)+entryVolume(e); }
+  });
   const dates=Object.keys(byDate).sort(), vols=dates.map(d=>byDate[d]);
   const pad={t:16,r:16,b:32,l:52}, pw=W-pad.l-pad.r, ph=H-pad.t-pad.b, maxV=Math.max(...vols);
   const xOf=i=>pad.l+(i/(dates.length-1))*pw, yOf=v=>pad.t+ph-(v/maxV)*ph;
@@ -817,7 +825,7 @@ function renderChart(rows) {
   });
   const exSel=document.getElementById('filter-exercise');
   const exName=exSel.value?exercises.find(e=>e.id===exSel.value)?.name:'All Exercises';
-  document.getElementById('chart-title').textContent=`Volume over time — ${exName}`;
+  document.getElementById('chart-title').textContent=useORM?`Est. 1RM over time — ${exName}`:`Volume over time — ${exName}`;
 }
 
 // ══════════════════════════════════════════════
