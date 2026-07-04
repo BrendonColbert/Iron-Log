@@ -181,6 +181,11 @@
       <input type="password" id="inp-pass" placeholder="Your secret passphrase" autocomplete="off">
     </div>
 
+    <div style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="inp-remember" style="width:auto;accent-color:var(--accent);cursor:pointer;">
+      <label for="inp-remember" style="font-family:'DM Mono',monospace;font-size:0.68rem;letter-spacing:1px;color:var(--muted);cursor:pointer;text-transform:uppercase;">Remember this device</label>
+    </div>
+
     <div class="err-msg" id="login-err"></div>
 
     <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Unlock →</button>
@@ -358,9 +363,17 @@ window.addEventListener('DOMContentLoaded', () => {
   ['inp-pat','inp-pass'].forEach(id =>
     document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); })
   );
-  // Restore PAT from session (not localStorage — clears on tab close)
-  const pat = sessionStorage.getItem('il_pat');
-  if(pat) document.getElementById('inp-pat').value = pat;
+  const savedPat  = localStorage.getItem('il_pat_saved');
+  const savedPass = localStorage.getItem('il_pass_saved');
+  if(savedPat && savedPass) {
+    document.getElementById('inp-pat').value      = savedPat;
+    document.getElementById('inp-pass').value     = savedPass;
+    document.getElementById('inp-remember').checked = true;
+    doLogin();
+  } else {
+    const pat = sessionStorage.getItem('il_pat');
+    if(pat) document.getElementById('inp-pat').value = pat;
+  }
 });
 
 async function doLogin() {
@@ -382,7 +395,14 @@ async function doLogin() {
     if(!ur.login) throw new Error('Invalid token');
 
     ghToken = pat;
-    sessionStorage.setItem('il_pat', pat); // survives refresh, clears on tab close
+    sessionStorage.setItem('il_pat', pat);
+    if(document.getElementById('inp-remember').checked) {
+      localStorage.setItem('il_pat_saved',  pat);
+      localStorage.setItem('il_pass_saved', pass);
+    } else {
+      localStorage.removeItem('il_pat_saved');
+      localStorage.removeItem('il_pass_saved');
+    }
 
     // Find or create gist
     gistId = HARDCODED_GIST_ID || localStorage.getItem('il_gist_id') || null;
