@@ -556,7 +556,7 @@ function saveAll() { scheduleSave(); }
 
 function dataHash() {
   return entries.length + '_' + exercises.length + '_' +
-    entries.map(e => e.id + e.ts).join(',');
+    entries.map(e => e.id + e.ts + e.exId).join(',');
 }
 
 window.addEventListener('beforeunload', e => {
