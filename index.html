@@ -134,6 +134,10 @@
   .exercise-card-actions button{background:none;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:'DM Mono',monospace;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;padding:4px 8px;cursor:pointer;transition:all 0.15s;}
   .exercise-card-actions button:hover{border-color:var(--accent);color:var(--accent);}
   .exercise-card-actions button.merge-btn:hover{border-color:var(--accent2);color:var(--accent2);}
+  .exercise-card-actions button.move-entries-btn:hover{border-color:var(--green);color:var(--green);}
+  .move-entry-row{display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:6px 8px;font-size:0.75rem;font-family:'DM Mono',monospace;}
+  .move-entry-row:hover{border-color:var(--green);}
+  .move-entry-list{max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;}
   .exercise-inline-edit{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
   .exercise-inline-edit input,.exercise-inline-edit select{font-size:0.8rem;padding:6px 8px;}
   .exercise-inline-edit .row{display:flex;gap:6px;}
@@ -903,6 +907,51 @@ function confirmRename(id) {
   toastMsg(`Renamed "${old}" → "${newName}"`);
 }
 
+function startMoveEntries(id) {
+  const ex = exercises.find(e => e.id === id);
+  if (!ex) return;
+  const exEntries = entries.filter(e => e.exId === id).slice().sort((a, b) => b.date.localeCompare(a.date));
+  if (!exEntries.length) { toastMsg('No entries to move', true); return; }
+  const others = exercises.filter(e => e.id !== id).sort((a, b) => a.name.localeCompare(b.name));
+  if (!others.length) { toastMsg('No other exercises to move into', true); return; }
+  const edit = document.getElementById('ex-edit-' + id);
+  edit.style.display = 'block';
+  edit.innerHTML = `
+    <div class="card-label" style="margin-bottom:6px;">Move to</div>
+    <select id="move-sel-${id}">${others.map(e => `<option value="${e.id}">${e.name}</option>`).join('')}</select>
+    <div class="card-label" style="margin:10px 0 6px;">Select entries to move</div>
+    <div class="move-entry-list" id="move-entries-${id}">
+      ${exEntries.map(e => {
+        const vol = entryVolume(e);
+        const volStr = vol > 0 ? vol.toLocaleString() + ' lbs' : 'BW';
+        const notesStr = e.notes ? ` — <em style="color:var(--muted)">${e.notes}</em>` : '';
+        return `<label class="move-entry-row">
+          <input type="checkbox" value="${e.id}" style="accent-color:var(--green);cursor:pointer;flex-shrink:0;">
+          <span>${fmtDate(e.date)} — ${e.sets.length} set${e.sets.length !== 1 ? 's' : ''} · ${volStr}${notesStr}</span>
+        </label>`;
+      }).join('')}
+    </div>
+    <div class="row" style="margin-top:8px;">
+      <button class="btn btn-primary btn-sm" style="width:auto;background:var(--green);color:#000;" onclick="confirmMoveEntries('${id}')">Move Selected</button>
+      <button class="btn btn-ghost btn-sm" style="width:auto;" onclick="renderExercises()">Cancel</button>
+    </div>`;
+}
+
+function confirmMoveEntries(sourceId) {
+  const targetId = document.getElementById('move-sel-' + sourceId)?.value;
+  const target = exercises.find(e => e.id === targetId);
+  if (!target) return;
+  const checked = document.querySelectorAll(`#move-entries-${sourceId} input[type="checkbox"]:checked`);
+  const ids = Array.from(checked).map(c => c.value);
+  if (!ids.length) { toastMsg('Select at least one entry', true); return; }
+  const idSet = new Set(ids);
+  entries.forEach(entry => {
+    if (idSet.has(entry.id)) { entry.exId = targetId; entry.exName = target.name; }
+  });
+  saveAll(); renderExercises(); populateExerciseSelect();
+  toastMsg(`Moved ${ids.length} entr${ids.length !== 1 ? 'ies' : 'y'} to "${target.name}"`);
+}
+
 function startMerge(id) {
   const others = exercises.filter(e=>e.id!==id).sort((a,b)=>a.name.localeCompare(b.name));
   if(!others.length) { toastMsg('No other exercises to merge into',true); return; }
@@ -960,6 +1009,7 @@ function renderExercises() {
       <div class="exercise-card-stat" id="ex-stat-${ex.id}">${count} session${count!==1?'s':''} · ${Math.round(vol).toLocaleString()} lbs total</div>
       <div class="exercise-card-actions">
         <button onclick="startRename('${ex.id}')">Rename</button>
+        <button class="move-entries-btn" onclick="startMoveEntries('${ex.id}')">Move entries…</button>
         <button class="merge-btn" onclick="startMerge('${ex.id}')">Merge into…</button>
       </div>
       <div class="exercise-inline-edit" id="ex-edit-${ex.id}" style="display:none;"></div>
