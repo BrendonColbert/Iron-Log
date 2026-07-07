@@ -145,7 +145,7 @@
   .add-exercise-form .form-field{margin:0;flex:1;}
 
   /* REP MAX HINT */
-  .rep-max-hint{font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:1px;min-height:1.2em;margin-bottom:8px;transition:opacity 0.2s;}
+  .rep-max-hint{font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:1px;min-height:2.6em;margin-bottom:8px;transition:opacity 0.2s;}
   .rep-max-hint.found{color:var(--accent);}
   .rep-max-hint.est{color:var(--accent2);}
   .rep-max-hint.none{color:var(--muted);}
@@ -628,35 +628,39 @@ function updateRepMaxHint() {
   const hint = document.getElementById('rep-max-hint');
   const reps = parseInt(document.getElementById('inp-reps').value);
   const exId = document.getElementById('sel-exercise').value;
-  if (!reps || reps < 1 || !exId) { hint.textContent = ''; hint.className = 'rep-max-hint'; return; }
+  if (!reps || reps < 1 || !exId) { hint.innerHTML = ''; hint.className = 'rep-max-hint'; return; }
 
   let maxWeight = -1;
-  let bestORM    = -1;
+  let bestORM   = -1;
 
   entries.forEach(entry => {
     if (entry.exId !== exId) return;
     entry.sets.forEach(set => {
       if (set.weight <= 0) return;
-      if (set.reps === reps) {
-        if (set.weight > maxWeight) maxWeight = set.weight;
-      }
+      if (set.reps === reps && set.weight > maxWeight) maxWeight = set.weight;
       const orm = epley1RM(set.weight, set.reps);
       if (orm > bestORM) bestORM = orm;
     });
   });
 
   const label = `${reps} rep${reps===1?'':'s'}`;
-  if (maxWeight >= 0) {
-    hint.textContent  = `Best at ${label}: ${maxWeight} lbs`;
-    hint.className    = 'rep-max-hint found';
-  } else if (bestORM > 0) {
-    const est = Math.round(epleyAtReps(bestORM, reps) / 2.5) * 2.5;
-    hint.textContent  = `Est. at ${label}: ~${est} lbs`;
-    hint.className    = 'rep-max-hint est';
-  } else {
-    hint.textContent  = `No data for ${label}`;
-    hint.className    = 'rep-max-hint none';
+  hint.className = 'rep-max-hint';
+
+  if (maxWeight < 0 && bestORM <= 0) {
+    hint.innerHTML = `<span style="color:var(--muted)">No data for ${label}</span>`;
+    return;
   }
+
+  const parts = [];
+  if (maxWeight >= 0) {
+    parts.push(`<span style="color:var(--accent)">Best at ${label}: ${maxWeight} lbs</span>`);
+  }
+  if (bestORM > 0) {
+    const est = Math.round(epleyAtReps(bestORM, reps) / 2.5) * 2.5;
+    const label2 = maxWeight >= 0 ? 'Est. from best set' : `Est. at ${label}`;
+    parts.push(`<span style="color:var(--accent2)">${label2}: ~${est} lbs</span>`);
+  }
+  hint.innerHTML = parts.join('<br>');
 }
 
 function addSet() {
