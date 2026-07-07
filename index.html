@@ -922,12 +922,15 @@ function startMoveEntries(id) {
     <div class="card-label" style="margin:10px 0 6px;">Select entries to move</div>
     <div class="move-entry-list" id="move-entries-${id}">
       ${exEntries.map(e => {
-        const vol = entryVolume(e);
-        const volStr = vol > 0 ? vol.toLocaleString() + ' lbs' : 'BW';
-        const notesStr = e.notes ? ` — <em style="color:var(--muted)">${e.notes}</em>` : '';
+        const setsStr = e.sets.map((s, i) => `S${i+1} ${s.reps}r × ${s.weight > 0 ? s.weight + 'lb' : 'BW'}`).join(' · ');
+        const notesStr = e.notes ? `<div style="color:var(--muted);font-size:0.65rem;margin-top:2px;">${e.notes}</div>` : '';
         return `<label class="move-entry-row">
           <input type="checkbox" value="${e.id}" style="accent-color:var(--green);cursor:pointer;flex-shrink:0;">
-          <span>${fmtDate(e.date)} — ${e.sets.length} set${e.sets.length !== 1 ? 's' : ''} · ${volStr}${notesStr}</span>
+          <div>
+            <div>${fmtDate(e.date)}</div>
+            <div style="color:var(--muted);font-size:0.65rem;margin-top:2px;">${setsStr}</div>
+            ${notesStr}
+          </div>
         </label>`;
       }).join('')}
     </div>
